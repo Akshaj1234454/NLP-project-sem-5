@@ -1,0 +1,31 @@
+{
+  "features": {
+    "location": "Delhi",
+    "observation_date": "2026-11-24",
+    "original_march_post_count": 0,
+    "repost_adjusted_march_post_count": 0.0,
+    "planned_march_count": 0,
+    "ongoing_march_count": 0,
+    "completed_march_count": 0,
+    "unique_actor_count": 0,
+    "unique_organizer_count": 0,
+    "location_confidence_mean": 0.0,
+    "scale_small_count": 0,
+    "scale_medium_count": 0,
+    "scale_large_count": 0,
+    "scale_unknown_count": 0,
+    "escalation_indicator_count": 0,
+    "repost_velocity": 0,
+    "reply_velocity": 0,
+    "like_velocity": 0,
+    "quote_velocity": 0,
+    "lag_1d_count": 0,
+    "lag_3d_count": 0,
+    "count_change_24h": 0,
+    "count_change_7d": 0,
+    "previous_window_label": 0,
+    "prior_acled_event_count": 0,
+    "missing_data_indicator": 1
+  },
+  "valid_post_count": 0
+}

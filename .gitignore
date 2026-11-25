@@ -1,0 +1,86 @@
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+.env
+.env.*
+!.env.example
+
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.pyre/
+.ruff_cache/
+.cache/
+
+# Packaging and build artifacts
+build/
+dist/
+*.egg-info/
+*.egg
+sdist/
+wheels/
+.eggs/
+
+# Test and coverage reports
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+nosetests.xml
+.hypothesis/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.code-workspace
+
+# Windows system and Office files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.lnk
+~$*
+
+# macOS system files
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# Streamlit local configuration and secrets
+.streamlit/secrets.toml
+
+# Local credentials and keys
+*.pem
+*.key
+
+# Generated model weights and experiment artifacts
+# Regenerate these files using the project training scripts.
+models/march_classifier.joblib
+models/*.onnx
+models/*.pth
+models/*.pt
+
+# Optional local package-manager and tool files
+uv.lock
+.python-version
+

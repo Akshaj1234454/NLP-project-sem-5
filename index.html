@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NCR Civil Unrest Forecaster | LightGBM Intelligence Terminal</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        paper: "#FDFBF7",
+                        "paper-card": "#F4EFE6",
+                        "paper-border": "#E2D9CD",
+                        "ink-black": "#1A1A1A",
+                        "ink-slate": "#4A4A4A",
+                        "class-0": "#2D6A4F", // Green - No Unrest
+                        "class-1": "#B5838D", // Muted Rose - Peaceful March
+                        "class-2": "#BC4749"  // Red - Violent Escalation
+                    },
+                    fontFamily: {
+                        serif: ["Playfair Display", "Georgia", "serif"],
+                        mono: ["Courier New", "Courier", "monospace"],
+                        sans: ["Inter", "sans-serif"]
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-paper text-ink-black min-h-screen font-sans selection:bg-ink-black selection:text-paper">
+
+    <!-- Top News Banner Header -->
+    <header class="border-b-4 border-ink-black py-4 px-6 md:px-12 bg-paper">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+                <div class="text-xs font-mono uppercase tracking-widest text-ink-slate">National Capital Region Intelligence Unit</div>
+                <h1 class="font-serif text-3xl md:text-5xl font-black tracking-tight uppercase">Civil Unrest Forecasting Terminal</h1>
+            </div>
+            <div class="flex items-center gap-3">
+                <div id="api-status-badge" class="px-3 py-1 border border-ink-black text-xs font-mono font-bold uppercase tracking-wider bg-paper-card flex items-center gap-2">
+                    <span id="status-dot" class="inline-block w-2.5 h-2.5 rounded-full bg-class-1 animate-pulse"></span>
+                    <span id="status-text">CONNECTING TO FASTAPI...</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Workspace Container -->
+    <main class="max-w-7xl mx-auto p-4 md:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
+
+        <!-- LEFT COLUMN: Inputs, Presets & Feature Grid (7 Cols) -->
+        <section class="lg:col-span-7 space-y-6">
+            
+            <!-- 5 Premade Examples Bar -->
+            <div class="bg-paper-card border-2 border-ink-black p-4 shadow-[4px_4px_0px_0px_#1A1A1A]">
+                <div class="text-xs font-mono uppercase font-bold tracking-wider mb-3 text-ink-slate flex items-center justify-between">
+                    <span>⚡ Quick Demo Scenarios (Select Test Case)</span>
+                    <span class="text-[10px] lowercase italic text-ink-slate">click to load profile</span>
+                </div>
+                <div class="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                    <button onclick="loadPreset('preset1')" class="p-2 border border-ink-black bg-paper text-xs font-bold font-mono hover:bg-ink-black hover:text-paper transition-colors text-left">
+                        1. Metro Budget (C0)
+                    </button>
+                    <button onclick="loadPreset('preset2')" class="p-2 border border-ink-black bg-paper text-xs font-bold font-mono hover:bg-ink-black hover:text-paper transition-colors text-left">
+                        2. Kisan March (C1)
+                    </button>
+                    <button onclick="loadPreset('preset3')" class="p-2 border border-ink-black bg-paper text-xs font-bold font-mono hover:bg-ink-black hover:text-paper transition-colors text-left">
+                        3. Highway Clash (C2)
+                    </button>
+                    <button onclick="loadPreset('preset4')" class="p-2 border border-ink-black bg-paper text-xs font-bold font-mono hover:bg-ink-black hover:text-paper transition-colors text-left">
+                        4. Student Rally (C1)
+                    </button>
+                    <button onclick="loadPreset('preset5')" class="p-2 border border-ink-black bg-paper text-xs font-bold font-mono hover:bg-ink-black hover:text-paper transition-colors text-left">
+                        5. Labor Riot (C2)
+                    </button>
+                </div>
+            </div>
+
+            <!-- Raw Tweet & Context Input Card -->
+            <div class="bg-paper border-2 border-ink-black p-6 shadow-[4px_4px_0px_0px_#1A1A1A]">
+                <div class="flex justify-between items-center mb-3">
+                    <label for="tweet-text" class="font-serif font-bold text-lg uppercase tracking-tight">Raw Post / Social Telemetry</label>
+                    <span id="char-count" class="text-xs font-mono text-ink-slate">0 chars</span>
+                </div>
+                <textarea id="tweet-text" rows="3" oninput="onTweetInput()" class="w-full bg-paper-card border border-ink-black p-3 font-mono text-sm focus:outline-none focus:ring-1 focus:ring-ink-black resize-none" placeholder="Paste breaking broadcast or social feed text here..."></textarea>
+
+                <!-- Metadata Row -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
+                    <div>
+                        <label class="block text-xs font-mono uppercase font-bold text-ink-slate mb-1">Target District</label>
+                        <select id="input-location" class="w-full bg-paper-card border border-ink-black p-2 text-xs font-mono font-bold focus:outline-none">
+                            <option value="Delhi">Delhi</option>
+                            <option value="New Delhi">New Delhi</option>
+                            <option value="Gurugram">Gurugram</option>
+                            <option value="Noida">Noida</option>
+                            <option value="Ghaziabad">Ghaziabad</option>
+                            <option value="Faridabad">Faridabad</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-mono uppercase font-bold text-ink-slate mb-1">Observation Date</label>
+                        <input type="date" id="input-date" class="w-full bg-paper-card border border-ink-black p-2 text-xs font-mono font-bold focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-mono uppercase font-bold text-ink-slate mb-1">Prior Window Label</label>
+                        <select id="input-prev-label" class="w-full bg-paper-card border border-ink-black p-2 text-xs font-mono font-bold focus:outline-none">
+                            <option value="0">0 - No Unrest</option>
+                            <option value="1">1 - Peaceful March</option>
+                            <option value="2">2 - Violent Escalation</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Engagement Velocity Inputs -->
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-4 pt-4 border-t border-paper-border">
+                    <div>
+                        <label class="block text-[11px] font-mono uppercase font-bold text-ink-slate">Retweets / Reposts</label>
+                        <input type="number" id="input-retweets" value="0" class="w-full bg-paper-card border border-ink-black p-1.5 text-xs font-mono font-bold focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-mono uppercase font-bold text-ink-slate">Likes / Score</label>
+                        <input type="number" id="input-likes" value="0" class="w-full bg-paper-card border border-ink-black p-1.5 text-xs font-mono font-bold focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-mono uppercase font-bold text-ink-slate">Prior ACLED Events (7d)</label>
+                        <input type="number" id="input-acled" value="0" class="w-full bg-paper-card border border-ink-black p-1.5 text-xs font-mono font-bold focus:outline-none">
+                    </div>
+                </div>
+
+                <!-- Submit Button -->
+                <button onclick="submitForecast()" class="w-full mt-6 bg-ink-black text-paper font-serif font-bold text-lg uppercase py-3 border border-ink-black hover:bg-paper hover:text-ink-black transition-colors shadow-[2px_2px_0px_0px_#1A1A1A] active:translate-x-0.5 active:translate-y-0.5">
+                    Run LightGBM Inference &rarr;
+                </button>
+            </div>
+
+            <!-- Advanced 24-Feature Vector Grid (Collapsible/Editable) -->
+            <div class="bg-paper border-2 border-ink-black p-6 shadow-[4px_4px_0px_0px_#1A1A1A]">
+                <div class="flex justify-between items-center cursor-pointer mb-4" onclick="toggleVectorInspector()">
+                    <div>
+                        <h3 class="font-serif font-bold text-lg uppercase tracking-tight">Feature Vector Inspector</h3>
+                        <p class="text-xs font-mono text-ink-slate">Inspect or manually edit all 24 LightGBM model features.</p>
+                    </div>
+                    <span id="vector-toggle-icon" class="font-mono text-xs font-bold uppercase">[ + EXPAND ]</span>
+                </div>
+                
+                <div id="vector-inspector-content" class="hidden space-y-4 pt-2 border-t border-paper-border">
+                    <div id="feature-inputs-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                        <!-- Dynamically populated via JS -->
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- RIGHT COLUMN: Verdict, Probabilities, Trend Chart & JSON Output (5 Cols) -->
+        <section class="lg:col-span-5 space-y-6">
+            
+            <!-- Primary Verdict Card -->
+            <div class="bg-paper border-2 border-ink-black p-6 shadow-[6px_6px_0px_0px_#1A1A1A] relative overflow-hidden">
+                <div class="flex justify-between items-start mb-4">
+                    <div class="text-xs font-mono uppercase font-bold text-ink-slate">24-Hour Forecast Verdict</div>
+                    <div id="verdict-source-tag" class="px-2 py-0.5 border border-ink-black bg-class-0 text-paper text-[10px] font-mono font-bold uppercase">
+                        INITIALIZING...
+                    </div>
+                </div>
+
+                <div class="border-y-2 border-ink-black py-4 my-2">
+                    <div class="text-xs font-mono uppercase text-ink-slate font-bold">Target Location: <span id="verdict-location" class="text-ink-black font-extrabold">-</span></div>
+                    <div class="flex items-baseline gap-4 mt-1">
+                        <span id="verdict-class-number" class="font-serif text-6xl md:text-7xl font-black text-ink-black">0</span>
+                        <div>
+                            <div id="verdict-class-label" class="font-serif font-bold text-xl md:text-2xl tracking-tight uppercase">NO UNREST</div>
+                            <div id="verdict-description" class="text-xs font-mono text-ink-slate mt-1">Awaiting live telemetry transmission.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- NEW: Simulated 7-Day Trend & Growth Velocity Chart (SVG Sparkline) -->
+                <div class="mt-4 pt-3 border-t border-paper-border">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-[11px] font-mono uppercase font-bold text-ink-slate">7-Day Mobilization Volume Trend & Growth</span>
+                        <span id="trend-growth-indicator" class="text-[11px] font-mono font-bold text-class-0">+0.0% 24h</span>
+                    </div>
+                    <div class="bg-paper-card border border-ink-black p-2 h-24 relative flex items-center justify-center">
+                        <svg id="trend-svg" class="w-full h-full overflow-visible" viewBox="0 0 300 60" preserveAspectRatio="none">
+                            <!-- Dynamic SVG Path rendered via JS -->
+                        </svg>
+                        <div class="absolute bottom-1 left-2 text-[9px] font-mono text-ink-slate">T-6d</div>
+                        <div class="absolute bottom-1 right-2 text-[9px] font-mono text-ink-slate">Today (T)</div>
+                    </div>
+                </div>
+
+                <!-- Probability Spectrum Bars -->
+                <div class="mt-5 space-y-3">
+                    <div class="text-xs font-mono uppercase font-bold">Class Probability Spectrum</div>
+                    
+                    <!-- Class 0 -->
+                    <div>
+                        <div class="flex justify-between text-xs font-mono mb-1">
+                            <span class="font-bold text-class-0">0: No Unrest</span>
+                            <span id="prob-0-text" class="font-bold">0.0%</span>
+                        </div>
+                        <div class="w-full bg-paper-card border border-ink-black h-3 overflow-hidden">
+                            <div id="prob-0-bar" class="bg-class-0 h-full transition-all duration-500" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Class 1 -->
+                    <div>
+                        <div class="flex justify-between text-xs font-mono mb-1">
+                            <span class="font-bold text-class-1">1: Peaceful March</span>
+                            <span id="prob-1-text" class="font-bold">0.0%</span>
+                        </div>
+                        <div class="w-full bg-paper-card border border-ink-black h-3 overflow-hidden">
+                            <div id="prob-1-bar" class="bg-class-1 h-full transition-all duration-500" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Class 2 -->
+                    <div>
+                        <div class="flex justify-between text-xs font-mono mb-1">
+                            <span class="font-bold text-class-2">2: Violent Escalation</span>
+                            <span id="prob-2-text" class="font-bold">0.0%</span>
+                        </div>
+                        <div class="w-full bg-paper-card border border-ink-black h-3 overflow-hidden">
+                            <div id="prob-2-bar" class="bg-class-2 h-full transition-all duration-500" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Extracted Pipeline Highlights -->
+                <div class="mt-5 pt-3 border-t border-paper-border">
+                    <div class="text-xs font-mono uppercase font-bold mb-2">Extracted NLP Signals & Indicators</div>
+                    <ul id="cues-list" class="text-xs font-mono space-y-1 text-ink-slate">
+                        <li><i>Awaiting telemetry input...</i></li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- API Payload / JSON Inspector Card -->
+            <div class="bg-paper border-2 border-ink-black p-6 shadow-[4px_4px_0px_0px_#1A1A1A]">
+                <div class="flex border-b border-ink-black mb-3">
+                    <button id="tab-btn-request" onclick="switchJsonTab('request')" class="flex-1 py-1.5 px-2 font-mono text-xs font-bold uppercase bg-paper border-r border-ink-black text-ink-black">
+                        Payload Sent
+                    </button>
+                    <button id="tab-btn-response" onclick="switchJsonTab('response')" class="flex-1 py-1.5 px-2 font-mono text-xs font-bold uppercase bg-paper-card text-ink-slate hover:text-ink-black">
+                        Model Response
+                    </button>
+                </div>
+                
+                <pre id="json-request-view" class="bg-paper-card border border-ink-black p-3 text-[11px] font-mono overflow-x-auto max-h-60">{}</pre>
+                <pre id="json-response-view" class="bg-paper-card border border-ink-black p-3 text-[11px] font-mono overflow-x-auto max-h-60 hidden">{}</pre>
+            </div>
+
+            <!-- Disclaimer Notice -->
+            <div class="p-4 border border-ink-black bg-paper-card text-xs font-mono text-ink-slate text-center">
+                <span id="disclaimer-text">"For research use only; not for operational or humanitarian decision-making."</span>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- Client Scripting Integration -->
+    <script>
+        // --- 1. CONSTANTS & PRESET SCHEMAS ---
+        const FEATURE_COLUMNS = [
+            "original_march_post_count",
+            "repost_adjusted_march_post_count",
+            "planned_march_count",
+            "ongoing_march_count",
+            "completed_march_count",
+            "unique_actor_count",
+            "unique_organizer_count",
+            "location_confidence_mean",
+            "scale_small_count",
+            "scale_medium_count",
+            "scale_large_count",
+            "scale_unknown_count",
+            "escalation_indicator_count",
+            "repost_velocity",
+            "reply_velocity",
+            "like_velocity",
+            "quote_velocity",
+            "lag_1d_count",
+            "lag_3d_count",
+            "count_change_24h",
+            "count_change_7d",
+            "previous_window_label",
+            "prior_acled_event_count",
+            "missing_data_indicator"
+        ];
+
+        const CLASS_META = {
+            0: { label: "NO UNREST", colorClass: "text-class-0", desc: "Routine civic announcements or non-disruptive political commentary. Low escalation risk." },
+            1: { label: "PEACEFUL MARCH", colorClass: "text-class-1", desc: "Organized rally or march detected. Medium mobilization volume with low violence indicators." },
+            2: { label: "VIOLENT ESCALATION", colorClass: "text-class-2", desc: "Active clashes, stone-pelting, tear gas, barricades, or arson reported. High escalation risk." }
+        };
+
+        const PRESETS = {
+            preset1: {
+                text: "The state government held a press conference in New Delhi today announcing new infrastructure development budgets and metro extensions for the NCR region.",
+                location: "New Delhi",
+                likes: 85,
+                retweets: 12,
+                prevLabel: 0,
+                acled: 1
+            },
+            preset2: {
+                text: "Farmers union members assemble at Jantar Mantar Delhi tomorrow morning for a peaceful march towards parliament. Over 5,000 members expected.",
+                location: "Delhi",
+                likes: 420,
+                retweets: 190,
+                prevLabel: 0,
+                acled: 3
+            },
+            preset3: {
+                text: "Violent clashes break out in Ghaziabad! Protesters pelting stones near main highway barricade. Police deploying teargas and water cannons live.",
+                location: "Ghaziabad",
+                likes: 1250,
+                retweets: 640,
+                prevLabel: 1,
+                acled: 6
+            },
+            preset4: {
+                text: "Student union organizes peaceful campus protest rally in Noida sector 62 demanding examination reforms. Heavy police presence but calm atmosphere.",
+                location: "Noida",
+                likes: 310,
+                retweets: 95,
+                prevLabel: 0,
+                acled: 2
+            },
+            preset5: {
+                text: "Industrial strike in Gurugram turns chaotic as striking workers set vehicles on fire outside factory gates. Police lathi charge underway.",
+                location: "Gurugram",
+                likes: 1890,
+                retweets: 920,
+                prevLabel: 2,
+                acled: 8
+            }
+        };
+
+        let currentVector = {};
+
+        // --- 2. INITIALIZATION ---
+        window.addEventListener("DOMContentLoaded", () => {
+            const today = new Date().toISOString().split('T')[0];
+            const dateInput = document.getElementById('input-date');
+            if (dateInput) dateInput.value = today;
+
+            initFeatureGrid();
+            loadPreset('preset2');
+            checkHealth();
+        });
+
+        function initFeatureGrid() {
+            const container = document.getElementById("feature-inputs-grid");
+            if (!container) return;
+            container.innerHTML = "";
+
+            FEATURE_COLUMNS.forEach(col => {
+                const wrapper = document.createElement("div");
+                wrapper.className = "bg-paper p-1.5 border border-paper-border";
+                
+                const label = document.createElement("label");
+                label.className = "block text-[10px] text-ink-slate font-bold truncate uppercase font-mono";
+                label.title = col;
+                label.innerText = col;
+
+                const input = document.createElement("input");
+                input.type = "number";
+                input.step = col.includes("confidence") ? "0.01" : "1";
+                input.id = `feat-${col}`;
+                input.className = "w-full bg-paper-card border border-ink-black px-1 py-0.5 text-xs font-bold font-mono focus:outline-none";
+                input.oninput = () => {
+                    currentVector[col] = parseFloat(input.value) || 0;
+                    updateJsonViews();
+                };
+
+                wrapper.appendChild(label);
+                wrapper.appendChild(input);
+                container.appendChild(wrapper);
+            });
+        }
+
+        function onTweetInput() {
+            const textElement = document.getElementById("tweet-text");
+            if (!textElement) return;
+            const text = textElement.value;
+            const charCount = document.getElementById("char-count");
+            if (charCount) charCount.innerText = `${text.length} chars`;
+        }
+
+        // --- 3. PRESETS & CONTROLS ---
+        function loadPreset(presetKey) {
+            const data = PRESETS[presetKey];
+            if (!data) return;
+
+            document.getElementById("tweet-text").value = data.text;
+            document.getElementById("input-location").value = data.location;
+            document.getElementById("input-likes").value = data.likes;
+            document.getElementById("input-retweets").value = data.retweets;
+            document.getElementById("input-prev-label").value = data.prevLabel;
+            document.getElementById("input-acled").value = data.acled;
+            document.getElementById("char-count").innerText = `${data.text.length} chars`;
+
+            submitForecast();
+        }
+
+        function toggleVectorInspector() {
+            const content = document.getElementById("vector-inspector-content");
+            const icon = document.getElementById("vector-toggle-icon");
+            if (!content || !icon) return;
+            if (content.classList.contains("hidden")) {
+                content.classList.remove("hidden");
+                icon.innerText = "[ - COLLAPSE ]";
+            } else {
+                content.classList.add("hidden");
+                icon.innerText = "[ + EXPAND ]";
+            }
+        }
+
+        function switchJsonTab(tab) {
+            const reqView = document.getElementById("json-request-view");
+            const resView = document.getElementById("json-response-view");
+            const reqBtn = document.getElementById("tab-btn-request");
+            const resBtn = document.getElementById("tab-btn-response");
+
+            if (!reqView || !resView || !reqBtn || !resBtn) return;
+
+            if (tab === 'request') {
+                reqView.classList.remove("hidden");
+                resView.classList.add("hidden");
+                reqBtn.className = "flex-1 py-1.5 px-2 font-mono text-xs font-bold uppercase bg-paper border-r border-ink-black text-ink-black";
+                resBtn.className = "flex-1 py-1.5 px-2 font-mono text-xs font-bold uppercase bg-paper-card text-ink-slate hover:text-ink-black";
+            } else {
+                reqView.classList.add("hidden");
+                resView.classList.remove("hidden");
+                resBtn.className = "flex-1 py-1.5 px-2 font-mono text-xs font-bold uppercase bg-paper border-l border-ink-black text-ink-black";
+                reqBtn.className = "flex-1 py-1.5 px-2 font-mono text-xs font-bold uppercase bg-paper-card text-ink-slate hover:text-ink-black";
+            }
+        }
+
+        function updateJsonViews(requestPayload = null, responsePayload = null) {
+            const location = document.getElementById("input-location")?.value || "Delhi";
+            const date = document.getElementById("input-date")?.value || "";
+            const text = document.getElementById("tweet-text")?.value || "";
+
+            if (!requestPayload) {
+                requestPayload = {
+                    text: text,
+                    location: location,
+                    observation_date: date,
+                    retweets: parseFloat(document.getElementById("input-retweets")?.value) || 0,
+                    likes: parseFloat(document.getElementById("input-likes")?.value) || 0,
+                    replies: 0,
+                    quotes: 0,
+                    lag_1d_count: currentVector.lag_1d_count || 2,
+                    lag_3d_count: currentVector.lag_3d_count || 5,
+                    count_change_24h: currentVector.count_change_24h || 1,
+                    count_change_7d: currentVector.count_change_7d || 2,
+                    previous_window_label: parseInt(document.getElementById("input-prev-label")?.value) || 0,
+                    prior_acled_event_count: parseFloat(document.getElementById("input-acled")?.value) || 0
+                };
+            }
+            
+            const reqView = document.getElementById("json-request-view");
+            if (reqView) reqView.innerText = JSON.stringify(requestPayload, null, 2);
+
+            if (responsePayload) {
+                const resView = document.getElementById("json-response-view");
+                if (resView) resView.innerText = JSON.stringify(responsePayload, null, 2);
+            }
+        }
+
+        // --- 4. RENDER DYNAMIC SVG TREND CHART ---
+        function renderTrendChart(predictedClass, likes, retweets) {
+            const svg = document.getElementById("trend-svg");
+            const growthInd = document.getElementById("trend-growth-indicator");
+            if (!svg) return;
+
+            // Generate synthetic 7-day trend values based on class severity & engagement
+            let baseVal = predictedClass === 2 ? 40 : (predictedClass === 1 ? 25 : 8);
+            let multiplier = (likes + retweets) > 500 ? 1.5 : 1.0;
+            
+            let points = [];
+            for (let i = 0; i < 7; i++) {
+                let noise = (Math.sin(i * 1.5) * 5);
+                let trendVal = Math.max(5, (baseVal * (0.6 + (i * 0.07 * multiplier))) + noise);
+                if (i === 6) trendVal = baseVal * multiplier * 1.2; // Spike on current day
+                points.push(trendVal);
+            }
+
+            // Map points to SVG coordinates (Width: 300, Height: 60)
+            const maxVal = Math.max(...points, 50);
+            const coords = points.map((val, idx) => {
+                let x = (idx / 6) * 280 + 10;
+                let y = 55 - (val / maxVal) * 45;
+                return `${x},y`;
+            });
+
+            // Build SVG path string
+            let pathD = `M ${coords[0].replace('y', points[0])}`;
+            for (let i = 1; i < coords.length; i++) {
+                let x = (i / 6) * 280 + 10;
+                let y = 55 - (points[i] / maxVal) * 45;
+                pathD += ` L ${x},${y}`;
+            }
+
+            const strokeColor = predictedClass === 2 ? "#BC4749" : (predictedClass === 1 ? "#B5838D" : "#2D6A4F");
+            
+            svg.innerHTML = `
+                <path d="${pathD}" fill="none" stroke="${strokeColor}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                ${points.map((val, i) => {
+                    let x = (i / 6) * 280 + 10;
+                    let y = 55 - (val / maxVal) * 45;
+                    return `<circle cx="${x}" cy="${y}" r="3" fill="#1A1A1A" stroke="${strokeColor}" stroke-width="1.5"/>`;
+                }).join('')}
+            `;
+
+            // Growth percentage calculation
+            const prev = points[5];
+            const curr = points[6];
+            const growthPct = (((curr - prev) / prev) * 100).toFixed(1);
+            growthInd.innerText = `${growthPct >= 0 ? '+' : ''}${growthPct}% 24h Vel`;
+            growthInd.className = `text-[11px] font-mono font-bold ${growthPct > 0 ? (predictedClass === 2 ? 'text-class-2' : 'text-class-1') : 'text-class-0'}`;
+        }
+
+        // --- 5. BACKEND CONNECTIVITY & FALLBACK ---
+        async function checkHealth() {
+            const baseUrl = "http://127.0.0.1:8000";
+            const badge = document.getElementById("api-status-badge");
+            const dot = document.getElementById("status-dot");
+            const statusText = document.getElementById("status-text");
+
+            if (statusText) statusText.innerText = "CHECKING API...";
+            if (dot) dot.className = "inline-block w-2.5 h-2.5 rounded-full bg-class-1 animate-pulse";
+
+            try {
+                const res = await fetch(`${baseUrl}/health`, { method: "GET" });
+                if (res.ok) {
+                    if (badge) badge.className = "px-3 py-1 border border-ink-black text-xs font-mono font-bold uppercase tracking-wider bg-class-0 text-paper flex items-center gap-2";
+                    if (dot) dot.className = "inline-block w-2.5 h-2.5 rounded-full bg-paper";
+                    if (statusText) statusText.innerText = "FASTAPI MODEL ONLINE";
+                    return true;
+                }
+            } catch (err) {
+                console.warn("Backend /health check failed:", err);
+            }
+
+            if (badge) badge.className = "px-3 py-1 border border-ink-black text-xs font-mono font-bold uppercase tracking-wider bg-paper text-class-2 flex items-center gap-2";
+            if (dot) dot.className = "inline-block w-2.5 h-2.5 rounded-full bg-class-2";
+            if (statusText) statusText.innerText = "OFFLINE - FALLBACK READY";
+            return false;
+        }
+
+        function calculateFallbackPrediction(payload) {
+            const text = (payload.text || "").toLowerCase();
+            const prevLabel = payload.previous_window_label || 0;
+
+            let p0 = 0.85, p1 = 0.10, p2 = 0.05;
+
+            if (text.includes("clash") || text.includes("teargas") || text.includes("stone") || text.includes("riot") || text.includes("fire") || prevLabel === 2) {
+                p2 = 0.84; p1 = 0.13; p0 = 0.03;
+            } else if (text.includes("march") || text.includes("assemble") || text.includes("rally") || text.includes("protest") || prevLabel === 1) {
+                p1 = 0.79; p0 = 0.16; p2 = 0.05;
+            } else {
+                p0 = 0.93; p1 = 0.05; p2 = 0.02;
+            }
+
+            const total = p0 + p1 + p2;
+            p0 = parseFloat((p0 / total).toFixed(4));
+            p1 = parseFloat((p1 / total).toFixed(4));
+            p2 = parseFloat((p2 / total).toFixed(4));
+
+            let predictedClass = 0;
+            if (p1 > p0 && p1 >= p2) predictedClass = 1;
+            if (p2 > p0 && p2 > p1) predictedClass = 2;
+
+            const simVector = {
+                original_march_post_count: predictedClass > 0 ? 3 : 1,
+                repost_adjusted_march_post_count: predictedClass > 0 ? 3.6 : 1.2,
+                planned_march_count: text.includes("tomorrow") || text.includes("planned") ? 1 : 0,
+                ongoing_march_count: predictedClass > 0 ? 1 : 0,
+                completed_march_count: 0,
+                unique_actor_count: 1,
+                unique_organizer_count: 1,
+                location_confidence_mean: 0.95,
+                scale_small_count: 0,
+                scale_medium_count: 1,
+                scale_large_count: text.includes("5000") || text.includes("thousands") ? 1 : 0,
+                scale_unknown_count: 0,
+                escalation_indicator_count: text.includes("clash") || text.includes("teargas") ? 2 : 0,
+                repost_velocity: payload.retweets / 24,
+                reply_velocity: payload.likes * 0.05,
+                like_velocity: payload.likes / 24,
+                quote_velocity: payload.retweets * 0.1,
+                lag_1d_count: 2,
+                lag_3d_count: 5,
+                count_change_24h: 1,
+                count_change_7d: 2,
+                previous_window_label: prevLabel,
+                prior_acled_event_count: payload.prior_acled_event_count,
+                missing_data_indicator: 0
+            };
+
+            return {
+                location: payload.location,
+                observation_date: payload.observation_date,
+                predicted_class: predictedClass,
+                predicted_label: Object.keys(CLASS_META)[predictedClass],
+                class_probabilities: { no_unrest: p0, peaceful_march: p1, violent_escalation: p2 },
+                extracted_arguments: {
+                    cleaned_text: payload.text,
+                    has_march_signal: true,
+                    is_valid_event: predictedClass > 0,
+                    event_status: predictedClass === 2 ? "ongoing" : (predictedClass === 1 ? "planned" : "none"),
+                    scale_category: "medium",
+                    escalation_indicators: text.includes("clash") ? ["clash", "teargas"] : [],
+                    actor: "protesters",
+                    organizer: "union",
+                    location_confidence: 0.95
+                },
+                feature_vector: simVector,
+                forecast_horizon_hours: 24,
+                research_disclaimer: "For research use only; not for operational or humanitarian decision-making. (Fallback Simulation Mode)"
+            };
+        }
+
+        // --- 6. SUBMISSION & RENDERING ---
+        async function submitForecast() {
+            const baseUrl = "http://127.0.0.1:8000";
+            const location = document.getElementById("input-location").value;
+            const date = document.getElementById("input-date").value;
+            const text = document.getElementById("tweet-text").value;
+
+            const retweets = parseFloat(document.getElementById("input-retweets").value) || 0;
+            const likes = parseFloat(document.getElementById("input-likes").value) || 0;
+            const prevLabel = parseInt(document.getElementById("input-prev-label").value) || 0;
+            const acled = parseFloat(document.getElementById("input-acled").value) || 0;
+
+            const requestPayload = {
+                text: text,
+                location: location,
+                observation_date: date,
+                retweets: retweets,
+                likes: likes,
+                replies: 0,
+                quotes: 0,
+                lag_1d_count: currentVector.lag_1d_count || 2,
+                lag_3d_count: currentVector.lag_3d_count || 5,
+                count_change_24h: currentVector.count_change_24h || 1,
+                count_change_7d: currentVector.count_change_7d || 2,
+                previous_window_label: prevLabel,
+                prior_acled_event_count: acled
+            };
+
+            updateJsonViews(requestPayload, null);
+
+            let responseData = null;
+            let isFallback = false;
+
+            try {
+                const res = await fetch(`${baseUrl}/predict_tweet`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(requestPayload)
+                });
+
+                if (res.ok) {
+                    responseData = await res.json();
+                } else {
+                    throw new Error(`HTTP ${res.status}`);
+                }
+            } catch (err) {
+                console.warn("FastAPI unavailable, running simulated local fallback:", err);
+                responseData = calculateFallbackPrediction(requestPayload);
+                isFallback = true;
+            }
+
+            if (responseData && responseData.feature_vector) {
+                currentVector = responseData.feature_vector;
+                FEATURE_COLUMNS.forEach(col => {
+                    const el = document.getElementById(`feat-${col}`);
+                    if (el && currentVector[col] !== undefined) {
+                        el.value = currentVector[col];
+                    }
+                });
+            }
+
+            renderVerdict(responseData, isFallback);
+            renderTrendChart(responseData.predicted_class, likes, retweets);
+        }
+
+        function renderVerdict(data, isFallback) {
+            const cls = data.predicted_class;
+            const meta = CLASS_META[cls] || CLASS_META[0];
+            const probs = data.class_probabilities || {};
+
+            document.getElementById("verdict-location").innerText = data.location;
+            
+            const sourceTag = document.getElementById("verdict-source-tag");
+            if (isFallback) {
+                sourceTag.innerText = "SIMULATED LOCAL FALLBACK";
+                sourceTag.className = "px-2 py-0.5 border border-ink-black bg-paper text-class-2 text-[10px] font-mono font-bold uppercase";
+            } else {
+                sourceTag.innerText = "FASTAPI LIGHTGBM LIVE";
+                sourceTag.className = "px-2 py-0.5 border border-ink-black bg-class-0 text-paper text-[10px] font-mono font-bold uppercase";
+            }
+
+            const numEl = document.getElementById("verdict-class-number");
+            const labelEl = document.getElementById("verdict-class-label");
+            const descEl = document.getElementById("verdict-description");
+
+            numEl.innerText = cls;
+            numEl.className = `font-serif text-6xl md:text-7xl font-black ${meta.colorClass}`;
+            
+            labelEl.innerText = meta.label;
+            labelEl.className = `font-serif font-bold text-xl md:text-2xl tracking-tight uppercase ${meta.colorClass}`;
+
+            descEl.innerText = meta.desc;
+
+            const p0 = ((probs.no_unrest || 0) * 100).toFixed(1);
+            const p1 = ((probs.peaceful_march || 0) * 100).toFixed(1);
+            const p2 = ((probs.violent_escalation || 0) * 100).toFixed(1);
+
+            document.getElementById("prob-0-text").innerText = `${p0}%`;
+            document.getElementById("prob-0-bar").style.width = `${p0}%`;
+
+            document.getElementById("prob-1-text").innerText = `${p1}%`;
+            document.getElementById("prob-1-bar").style.width = `${p1}%`;
+
+            document.getElementById("prob-2-text").innerText = `${p2}%`;
+            document.getElementById("prob-2-bar").style.width = `${p2}%`;
+
+            const cuesList = document.getElementById("cues-list");
+            cuesList.innerHTML = "";
+
+            if (data.extracted_arguments) {
+                const ext = data.extracted_arguments;
+                const items = [
+                    `Event Status: <b>${ext.event_status}</b> (Valid: ${ext.is_valid_event})`,
+                    `Scale Category: <b>${ext.scale_category}</b>`,
+                    `Escalation Cues: <b>${ext.escalation_indicators?.length || 0}</b> [${(ext.escalation_indicators || []).join(", ") || "None"}]`,
+                    `Identified Actor / Organizer: <b>${ext.actor}</b> / <b>${ext.organizer}</b>`,
+                    `Location Confidence: <b>${Math.round((ext.location_confidence || 0) * 100)}%</b>`
+                ];
+
+                items.forEach(htmlStr => {
+                    const li = document.createElement("li");
+                    li.innerHTML = htmlStr;
+                    cuesList.appendChild(li);
+                });
+            }
+
+            updateJsonViews(null, data);
+
+            if (data.research_disclaimer) {
+                document.getElementById("disclaimer-text").innerText = `` + data.research_disclaimer + ``;
+            }
+        }
+    </script>
+</body>
+</html>
